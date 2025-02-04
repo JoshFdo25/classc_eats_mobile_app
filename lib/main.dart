@@ -16,8 +16,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  // Manage dark mode here.
-  bool _isDarkMode = false;
+  bool _isDarkMode = true;
 
   void toggleDarkMode(bool value) {
     setState(() {
@@ -30,7 +29,6 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'ClassicEats',
       theme: _isDarkMode ? ThemeData.dark() : ThemeData.light(),
-      // For simplicity, we set MainScreen as the home route.
       home: MainScreen(toggleDarkMode: toggleDarkMode, isDarkMode: _isDarkMode),
       routes: {
         '/login': (context) => const LoginScreen(),
@@ -39,47 +37,47 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-/// MainScreen holds the top app bar, bottom navigation bar, and page body.
 class MainScreen extends StatefulWidget {
   final Function(bool) toggleDarkMode;
   final bool isDarkMode;
 
-  const MainScreen({super.key, required this.toggleDarkMode, required this.isDarkMode});
+  const MainScreen({
+    super.key,
+    required this.toggleDarkMode,
+    required this.isDarkMode,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // Global key for our Scaffold in order to open the end drawer.
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // Current index for the bottom navigation (0: Home, 1: Menu, 2: Cart).
-  // Note: We do not assign a page to index 3 (Profile) since that opens the drawer.
+  // Current index for navigation.
+  // For bottom nav: 0: Home, 1: Menu, 2: Cart, 3: Profile (opens drawer)
   int _currentIndex = 0;
 
-  // Dummy user data. In a real app, retrieve this from your API.
+  // Dummy user data.
   final String _userName = "John Doe";
   final String _userEmail = "johndoe@example.com";
-  final String _profileImageUrl =
-      "https://via.placeholder.com/150"; // Replace with your own image URL.
+  final String _profileImageUrl = "https://via.placeholder.com/150";
 
-  // Instantiate your ApiService so you can call logout.
   final ApiService _apiService = ApiService();
 
-  // List of pages for the first three tabs.
+  // List of pages for the first three navigation items.
   final List<Widget> _pages = [
     const HomeScreen(),
     const ProductsScreen(),
-    // const CartScreen(),
+    // Uncomment or add your CartScreen when available.
+    const Center(child: Text('Cart Screen')), // Placeholder for CartScreen.
   ];
 
-  void _onTabTapped(int index) {
+  void _onItemTapped(int index) {
     if (index == 3) {
-      // Profile tab tapped: Open the end drawer.
+      // Open profile drawer
       _scaffoldKey.currentState?.openEndDrawer();
     } else {
-      // Update the current index.
       setState(() {
         _currentIndex = index;
       });
@@ -88,35 +86,77 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _logout() async {
     await _apiService.logout();
-    // After logout, navigate to the login screen.
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed('/login');
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    double appBarHeight = isLandscape ? 40 : kToolbarHeight;
+
+    // In landscape mode, move the NavigationRail to the right.
+    Widget content;
+    if (isLandscape) {
+      content = Row(
+        children: [
+          // Expanded content area on the left.
+          Expanded(child: _pages[_currentIndex]),
+          const VerticalDivider(thickness: 1, width: 1),
+          // NavigationRail on the right.
+          NavigationRail(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: _onItemTapped,
+            labelType: NavigationRailLabelType.selected,
+            destinations: const [
+              NavigationRailDestination(
+                icon: Icon(Icons.home),
+                label: Text('Home'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.menu_book),
+                label: Text('Menu'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.shopping_cart),
+                label: Text('Cart'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.person),
+                label: Text('Profile'),
+              ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      // In portrait mode, use the current page.
+      content = _pages[_currentIndex];
+    }
+
     return Scaffold(
       key: _scaffoldKey,
-      // Top navigation bar with title.
+      // Remove any automatically implied leading button.
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.indigo[900],
+        toolbarHeight: appBarHeight,
+        centerTitle: true,
         title: const Text(
           'ClassicEats',
           style: TextStyle(
-            color: Colors.white,
             fontSize: 24,
-            fontFamily: 'Playwrite'
+            fontFamily: 'Playwrite',
+            color: Colors.white,
           ),
         ),
       ),
-      // Body displays the selected page (Home, Menu, or Cart).
-      body: _pages[_currentIndex],
-      // End drawer for profile information.
+      body: content,
       endDrawer: Drawer(
         child: SafeArea(
           child: Column(
             children: [
-              // Profile header.
               UserAccountsDrawerHeader(
                 currentAccountPicture: CircleAvatar(
                   backgroundImage: NetworkImage(_profileImageUrl),
@@ -127,25 +167,21 @@ class _MainScreenState extends State<MainScreen> {
                   color: Theme.of(context).primaryColor,
                 ),
               ),
-              // Dark mode switch.
               SwitchListTile(
                 title: const Text('Dark Mode'),
                 value: widget.isDarkMode,
                 onChanged: widget.toggleDarkMode,
                 secondary: const Icon(Icons.brightness_6),
               ),
-              // Contact Us option.
               ListTile(
                 leading: const Icon(Icons.contact_mail),
                 title: const Text('Contact Us'),
                 onTap: () {
-                  // TODO: Implement your contact functionality.
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Contact Us tapped')),
                   );
                 },
               ),
-              // Logout option.
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
@@ -157,13 +193,19 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
       ),
-      // Bottom navigation bar.
-      bottomNavigationBar: BottomNavigationBar(
+      // In portrait mode, show the bottom navigation bar.
+      bottomNavigationBar: isLandscape
+          ? null
+          : BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: _onTabTapped,
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Theme.of(context).bottomAppBarColor,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Theme.of(context).iconTheme.color,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home,),
+            icon: Icon(Icons.home),
             label: 'Home',
           ),
           BottomNavigationBarItem(
@@ -182,4 +224,8 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
+}
+
+extension on ThemeData {
+  get bottomAppBarColor => null;
 }
