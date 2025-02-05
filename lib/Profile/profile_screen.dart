@@ -3,6 +3,7 @@ import 'package:classc_eats/Services/api_service.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:permission_handler/permission_handler.dart'; // Add permission_handler package
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -36,19 +37,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _updateProfile() async {
-    Map<String, dynamic> profileData = {
+    Map<String, String> profileData = {
       "name": _nameController.text,
       "email": _emailController.text,
     };
-    final response = await _apiService.updateProfile(profileData);
+
+    final response = await _apiService.updateProfile(profileData, _image);
+
     if (response.statusCode == 200) {
+      setState(() {
+        _fetchUserProfile(); // Refresh user data
+      });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Profile updated successfully")),
         );
       }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to update profile")),
+        );
+      }
     }
   }
+
 
   Future<void> _deleteAccount() async {
     final response = await _apiService.deleteAccount();
@@ -87,14 +101,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Update the _pickImage function to choose between camera and gallery
   Future<void> _pickImage() async {
-    final pickedFile =
-        await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-    }
+    // Request permissions
+    await _requestPermissions();
+
+    // Show an option to choose between camera and gallery
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a Photo'),
+              onTap: () async {
+                Navigator.pop(context); // Close the bottom sheet
+                final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
+                if (pickedFile != null) {
+                  setState(() {
+                    _image = File(pickedFile.path);
+                  });
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () async {
+                Navigator.pop(context); // Close the bottom sheet
+                final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+                if (pickedFile != null) {
+                  setState(() {
+                    _image = File(pickedFile.path);
+                  });
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Function to request camera and gallery permissions
+  Future<void> _requestPermissions() async {
+    await [
+      Permission.camera,
+      Permission.photos,
+    ].request();
   }
 
   @override
@@ -109,23 +165,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.all(16.0),
             child: isPortrait
                 ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: _buildProfileForm(),
+            )
+                : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(width: 20),
+                Expanded(
+                  flex: 2,
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: _buildProfileForm(),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(width: 20),
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: _buildProfileForm(),
-                        ),
-                      ),
-                    ],
                   ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -165,9 +221,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundImage: _image != null
             ? FileImage(_image!)
             : _userProfile?["profile_picture"] != null
-                ? NetworkImage("https://classiceats.online/storage/" +
-                    _userProfile!["profile_picture"]) as ImageProvider
-                : null,
+            ? NetworkImage("https://classiceats.online/storage/" +
+            _userProfile!["profile_picture"]) as ImageProvider
+            : null,
         child: _image == null && _userProfile?["profile_picture"] == null
             ? const Icon(Icons.person, size: 50)
             : null,

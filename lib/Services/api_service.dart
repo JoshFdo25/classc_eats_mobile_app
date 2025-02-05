@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path/path.dart';
 
 class ApiService {
   final String baseUrl = "https://classiceats.online/api";
@@ -54,16 +56,33 @@ class ApiService {
     );
   }
 
-  Future<http.Response> updateProfile(Map<String, dynamic> profileData) async {
+  Future<http.Response> updateProfile(Map<String, String> profileData, File? image) async {
     String? token = await getToken();
-    return await http.post(
-      Uri.parse('$baseUrl/profile/update'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token'
-      },
-      body: jsonEncode(profileData),
-    );
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/profile/update'));
+
+    // Add headers
+    request.headers.addAll({
+      'Authorization': 'Bearer $token',
+    });
+
+    // Add text fields
+    profileData.forEach((key, value) {
+      request.fields[key] = value;
+    });
+
+    // Add image if available
+    if (image != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'profile_picture',
+          image.path,
+          filename: basename(image.path),
+        ),
+      );
+    }
+
+    var streamedResponse = await request.send();
+    return await http.Response.fromStream(streamedResponse);
   }
 
   Future<http.Response> deleteAccount() async {

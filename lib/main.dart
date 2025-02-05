@@ -4,6 +4,7 @@ import 'package:classc_eats/LoginRegistration/login_screen.dart';
 import 'package:classc_eats/Products/products_screen.dart';
 import 'package:classc_eats/Services/api_service.dart';
 import 'package:classc_eats/Profile/profile_screen.dart';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 
@@ -55,6 +56,7 @@ class MainScreen extends StatefulWidget {
     required this.isDarkMode,
   });
 
+
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
@@ -71,11 +73,22 @@ class _MainScreenState extends State<MainScreen> {
     const CartScreen(),
   ];
 
+  final Battery _battery = Battery();
+  int _batteryLevel = 100; // Default value
+
+  Future<void> _getBatteryLevel() async {
+    final level = await _battery.batteryLevel;
+    setState(() {
+      _batteryLevel = level;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _checkAuthStatus();
     _fetchUserProfile();
+    _getBatteryLevel();
   }
 
   Future<void> _checkAuthStatus() async {
@@ -157,7 +170,6 @@ class _MainScreenState extends State<MainScreen> {
         automaticallyImplyLeading: false,
         backgroundColor: Colors.indigo[900],
         toolbarHeight: appBarHeight,
-        centerTitle: true,
         title: const Text(
           'ClassicEats',
           style: TextStyle(
@@ -185,13 +197,11 @@ class _MainScreenState extends State<MainScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    accountEmail: Text(
-                      _userProfile!['email'],
-                    ),
+                    accountEmail: Text(_userProfile!['email']),
                     currentAccountPicture: CircleAvatar(
                       backgroundImage: _userProfile!['profile_picture'] != null
                           ? NetworkImage("https://classiceats.online/storage/" +
-                              _userProfile!['profile_picture'])
+                          _userProfile!['profile_picture'])
                           : null,
                       child: _userProfile!['profile_picture'] == null
                           ? const Icon(Icons.person, size: 50)
@@ -200,6 +210,11 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ),
               ],
+              ListTile(
+                leading: const Icon(Icons.battery_full),
+                title: Text('Battery Level: $_batteryLevel%'),
+                onTap: _getBatteryLevel, // Refresh battery level on tap
+              ),
               SwitchListTile(
                 title: const Text('Dark Mode'),
                 value: widget.isDarkMode,
