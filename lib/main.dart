@@ -1,10 +1,12 @@
 import 'package:classc_eats/Cart/cart_screen.dart';
+import 'package:classc_eats/Contact%20Us/contact_screen.dart';
 import 'package:classc_eats/Home/home_screen.dart';
 import 'package:classc_eats/LoginRegistration/login_screen.dart';
 import 'package:classc_eats/Products/products_screen.dart';
 import 'package:classc_eats/Services/api_service.dart';
 import 'package:classc_eats/Profile/profile_screen.dart';
 import 'package:battery_plus/battery_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 
@@ -56,7 +58,6 @@ class MainScreen extends StatefulWidget {
     required this.isDarkMode,
   });
 
-
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
@@ -74,12 +75,43 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   final Battery _battery = Battery();
-  int _batteryLevel = 100; // Default value
+  int _batteryLevel = 100;
 
   Future<void> _getBatteryLevel() async {
     final level = await _battery.batteryLevel;
     setState(() {
       _batteryLevel = level;
+    });
+  }
+
+  final Connectivity _connectivity = Connectivity();
+  String _connectionStatus = "Checking...";
+
+  Future<void> _checkConnectivity() async {
+    final results = await _connectivity.checkConnectivity();
+    if (results.isNotEmpty) {
+      _updateConnectionStatus(results.first);
+    }
+  }
+
+  void _listenToConnectivityChanges() {
+    _connectivity.onConnectivityChanged
+        .listen((List<ConnectivityResult> results) {
+      if (results.isNotEmpty) {
+        _updateConnectionStatus(results.first);
+      }
+    });
+  }
+
+  void _updateConnectionStatus(ConnectivityResult result) {
+    setState(() {
+      if (result == ConnectivityResult.mobile) {
+        _connectionStatus = "Connected to Mobile Data 📶";
+      } else if (result == ConnectivityResult.wifi) {
+        _connectionStatus = "Connected to WiFi 🌐";
+      } else {
+        _connectionStatus = "No Internet Connection ❌";
+      }
     });
   }
 
@@ -89,6 +121,7 @@ class _MainScreenState extends State<MainScreen> {
     _checkAuthStatus();
     _fetchUserProfile();
     _getBatteryLevel();
+    _listenToConnectivityChanges();
   }
 
   Future<void> _checkAuthStatus() async {
@@ -182,60 +215,69 @@ class _MainScreenState extends State<MainScreen> {
       body: content,
       endDrawer: Drawer(
         child: SafeArea(
-          child: Column(
-            children: [
-              if (_userProfile != null) ...[
-                GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, '/profile'),
-                  child: UserAccountsDrawerHeader(
-                    decoration: BoxDecoration(
-                      color: Colors.indigo[900],
-                    ),
-                    accountName: Text(
-                      _userProfile!['name'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+          child: SingleChildScrollView(  // Wrap in SingleChildScrollView to enable scrolling
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // Prevent unnecessary expansion
+              children: [
+                if (_userProfile != null) ...[
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/profile'),
+                    child: UserAccountsDrawerHeader(
+                      decoration: BoxDecoration(
+                        color: Colors.indigo[900],
+                      ),
+                      accountName: Text(
+                        _userProfile!['name'],
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      accountEmail: Text(_userProfile!['email']),
+                      currentAccountPicture: CircleAvatar(
+                        backgroundImage: _userProfile!['profile_picture'] != null
+                            ? NetworkImage("https://classiceats.online/storage/" + _userProfile!['profile_picture'])
+                            : null,
+                        child: _userProfile!['profile_picture'] == null
+                            ? const Icon(Icons.person, size: 50)
+                            : null,
                       ),
                     ),
-                    accountEmail: Text(_userProfile!['email']),
-                    currentAccountPicture: CircleAvatar(
-                      backgroundImage: _userProfile!['profile_picture'] != null
-                          ? NetworkImage("https://classiceats.online/storage/" +
-                          _userProfile!['profile_picture'])
-                          : null,
-                      child: _userProfile!['profile_picture'] == null
-                          ? const Icon(Icons.person, size: 50)
-                          : null,
-                    ),
                   ),
+                ],
+                ListTile(
+                  leading: const Icon(Icons.wifi),
+                  title: Text('Network Status: $_connectionStatus'),
+                  onTap: _checkConnectivity, // Manually refresh connectivity status
+                ),
+                ListTile(
+                  leading: const Icon(Icons.battery_full),
+                  title: Text('Battery Level: $_batteryLevel%'),
+                  onTap: _getBatteryLevel, // Refresh battery level on tap
+                ),
+                SwitchListTile(
+                  title: const Text('Dark Mode'),
+                  value: widget.isDarkMode,
+                  onChanged: widget.toggleDarkMode,
+                  secondary: const Icon(Icons.brightness_6),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.contact_mail),
+                  title: const Text('Contact Us'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ContactScreen(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Logout'),
+                  onTap: _logout,
                 ),
               ],
-              ListTile(
-                leading: const Icon(Icons.battery_full),
-                title: Text('Battery Level: $_batteryLevel%'),
-                onTap: _getBatteryLevel, // Refresh battery level on tap
-              ),
-              SwitchListTile(
-                title: const Text('Dark Mode'),
-                value: widget.isDarkMode,
-                onChanged: widget.toggleDarkMode,
-                secondary: const Icon(Icons.brightness_6),
-              ),
-              ListTile(
-                leading: const Icon(Icons.contact_mail),
-                title: const Text('Contact Us'),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Contact Us tapped')),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Logout'),
-                onTap: _logout,
-              ),
-            ],
+            ),
           ),
         ),
       ),
