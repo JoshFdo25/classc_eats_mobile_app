@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-
   final String baseUrl = "https://classiceats.online/api";
   final storage = const FlutterSecureStorage();
 
@@ -11,7 +10,8 @@ class ApiService {
     return await storage.read(key: "AuthToken");
   }
 
-  Future<http.Response> register(String name, String email, String password, String passwordConfirmation) async {
+  Future<http.Response> register(String name, String email, String password,
+      String passwordConfirmation) async {
     final response = await http.post(
       Uri.parse('$baseUrl/register'),
       headers: {'content-type': 'application/json'},
@@ -35,9 +35,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {'content-type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'password': password}),
+      body: jsonEncode({'email': email, 'password': password}),
     );
 
     if (response.statusCode == 200) {
@@ -48,26 +46,91 @@ class ApiService {
     return response;
   }
 
-  Future<http.Response> fetchProducts() async {
+  Future<http.Response> fetchProfile() async {
     String? token = await getToken();
     return await http.get(
-      Uri.parse('$baseUrl/products'),
+      Uri.parse('$baseUrl/profile'),
       headers: {'Authorization': 'Bearer $token'},
     );
   }
 
-  Future<http.Response> fetchCategories() async {
+  Future<http.Response> updateProfile(Map<String, dynamic> profileData) async {
     String? token = await getToken();
+    return await http.post(
+      Uri.parse('$baseUrl/profile/update'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token'
+      },
+      body: jsonEncode(profileData),
+    );
+  }
+
+  Future<http.Response> deleteAccount() async {
+    String? token = await getToken();
+    return await http.delete(
+      Uri.parse('$baseUrl/profile/delete'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  Future<http.Response> fetchProducts() async {
+    return await http.get(
+      Uri.parse('$baseUrl/products'),
+    );
+  }
+
+  Future<http.Response> fetchCategories() async {
     return await http.get(
       Uri.parse('$baseUrl/categories'),
-      headers: {'Authorization': 'Bearer $token'},
     );
   }
 
   Future<http.Response> addToCart(String productId) async {
     String? token = await getToken();
     return await http.post(
-      Uri.parse('$baseUrl/cart/$productId'),
+      Uri.parse('$baseUrl/cart/add/$productId'),
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer $token'
+      },
+    );
+  }
+
+  Future<http.Response> fetchCart() async {
+    String? token = await getToken();
+    return await http.get(
+      Uri.parse('$baseUrl/cart'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  Future<http.Response> removeFromCart(String cartItemId) async {
+    String? token = await getToken();
+    return await http.delete(
+      Uri.parse('$baseUrl/cart/remove/$cartItemId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  Future<http.Response> updateCartQuantity(
+      String cartItemId, int quantity) async {
+    String? token = await getToken();
+    return await http.patch(
+      Uri.parse('$baseUrl/cart/update/$cartItemId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token'
+      },
+      body: jsonEncode({'quantity': quantity}),
+    );
+  }
+
+  Future<http.Response> checkout() async {
+    String? token = await getToken();
+    // Assuming you add a checkout endpoint for the API.
+    return await http.post(
+      Uri.parse('$baseUrl/checkout'),
       headers: {'Authorization': 'Bearer $token'},
     );
   }

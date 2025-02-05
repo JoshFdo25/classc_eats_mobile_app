@@ -1,8 +1,11 @@
+import 'package:classc_eats/Cart/cart_screen.dart';
 import 'package:classc_eats/Home/home_screen.dart';
 import 'package:classc_eats/LoginRegistration/login_screen.dart';
 import 'package:classc_eats/Products/products_screen.dart';
 import 'package:classc_eats/Services/api_service.dart';
+import 'package:classc_eats/Profile/profile_screen.dart';
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -29,9 +32,14 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'ClassicEats',
       theme: _isDarkMode ? ThemeData.dark() : ThemeData.light(),
-      home: MainScreen(toggleDarkMode: toggleDarkMode, isDarkMode: _isDarkMode),
+      initialRoute: '/login', // Start with login screen
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/main': (context) => MainScreen(
+              toggleDarkMode: toggleDarkMode,
+              isDarkMode: _isDarkMode,
+            ),
+        '/profile': (context) => const ProfileScreen(),
       },
     );
   }
@@ -53,29 +61,43 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  // Current index for navigation.
-  // For bottom nav: 0: Home, 1: Menu, 2: Cart, 3: Profile (opens drawer)
   int _currentIndex = 0;
-
-  // Dummy user data.
-  final String _userName = "John Doe";
-  final String _userEmail = "johndoe@example.com";
-  final String _profileImageUrl = "https://via.placeholder.com/150";
-
   final ApiService _apiService = ApiService();
+  Map<String, dynamic>? _userProfile;
 
-  // List of pages for the first three navigation items.
   final List<Widget> _pages = [
     const HomeScreen(),
     const ProductsScreen(),
-    // Uncomment or add your CartScreen when available.
-    const Center(child: Text('Cart Screen')), // Placeholder for CartScreen.
+    const CartScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthStatus();
+    _fetchUserProfile();
+  }
+
+  Future<void> _checkAuthStatus() async {
+    String? token = await _apiService.getToken();
+    if (token == null) {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    }
+  }
+
+  Future<void> _fetchUserProfile() async {
+    final response = await _apiService.fetchProfile();
+    if (response.statusCode == 200) {
+      setState(() {
+        _userProfile = jsonDecode(response.body);
+      });
+    }
+  }
 
   void _onItemTapped(int index) {
     if (index == 3) {
-      // Open profile drawer
       _scaffoldKey.currentState?.openEndDrawer();
     } else {
       setState(() {
@@ -86,8 +108,9 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _logout() async {
     await _apiService.logout();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/login');
+    if (mounted) {
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 
   @override
@@ -96,48 +119,40 @@ class _MainScreenState extends State<MainScreen> {
         MediaQuery.of(context).orientation == Orientation.landscape;
     double appBarHeight = isLandscape ? 40 : kToolbarHeight;
 
-    // In landscape mode, move the NavigationRail to the right.
-    Widget content;
-    if (isLandscape) {
-      content = Row(
-        children: [
-          // Expanded content area on the left.
-          Expanded(child: _pages[_currentIndex]),
-          const VerticalDivider(thickness: 1, width: 1),
-          // NavigationRail on the right.
-          NavigationRail(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: _onItemTapped,
-            labelType: NavigationRailLabelType.selected,
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.home),
-                label: Text('Home'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.menu_book),
-                label: Text('Menu'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.shopping_cart),
-                label: Text('Cart'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.person),
-                label: Text('Profile'),
+    Widget content = isLandscape
+        ? Row(
+            children: [
+              Expanded(child: _pages[_currentIndex]),
+              const VerticalDivider(thickness: 1, width: 1),
+              NavigationRail(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _onItemTapped,
+                labelType: NavigationRailLabelType.selected,
+                destinations: const [
+                  NavigationRailDestination(
+                    icon: Icon(Icons.home),
+                    label: Text('Home'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.menu_book),
+                    label: Text('Menu'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.shopping_cart),
+                    label: Text('Cart'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.person),
+                    label: Text('Profile'),
+                  ),
+                ],
               ),
             ],
-          ),
-        ],
-      );
-    } else {
-      // In portrait mode, use the current page.
-      content = _pages[_currentIndex];
-    }
+          )
+        : _pages[_currentIndex];
 
     return Scaffold(
       key: _scaffoldKey,
-      // Remove any automatically implied leading button.
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.indigo[900],
@@ -157,16 +172,34 @@ class _MainScreenState extends State<MainScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              UserAccountsDrawerHeader(
-                currentAccountPicture: CircleAvatar(
-                  backgroundImage: NetworkImage(_profileImageUrl),
+              if (_userProfile != null) ...[
+                GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, '/profile'),
+                  child: UserAccountsDrawerHeader(
+                    decoration: BoxDecoration(
+                      color: Colors.indigo[900],
+                    ),
+                    accountName: Text(
+                      _userProfile!['name'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    accountEmail: Text(
+                      _userProfile!['email'],
+                    ),
+                    currentAccountPicture: CircleAvatar(
+                      backgroundImage: _userProfile!['profile_picture'] != null
+                          ? NetworkImage("https://classiceats.online/storage/" +
+                              _userProfile!['profile_picture'])
+                          : null,
+                      child: _userProfile!['profile_picture'] == null
+                          ? const Icon(Icons.person, size: 50)
+                          : null,
+                    ),
+                  ),
                 ),
-                accountName: Text(_userName),
-                accountEmail: Text(_userEmail),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                ),
-              ),
+              ],
               SwitchListTile(
                 title: const Text('Dark Mode'),
                 value: widget.isDarkMode,
@@ -185,47 +218,48 @@ class _MainScreenState extends State<MainScreen> {
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
-                onTap: () async {
-                  await _logout();
-                },
+                onTap: _logout,
               ),
             ],
           ),
         ),
       ),
-      // In portrait mode, show the bottom navigation bar.
       bottomNavigationBar: isLandscape
           ? null
-          : BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Theme.of(context).bottomAppBarColor,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Theme.of(context).iconTheme.color,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book),
-            label: 'Menu',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+          : ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20), // Set the top-left radius
+                topRight: Radius.circular(20), // Set the top-right radius
+              ),
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: _onItemTapped,
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey[900]
+                    : Colors.grey[300],
+                selectedItemColor: Colors.indigo[600],
+                unselectedItemColor: Theme.of(context).iconTheme.color,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.menu_book),
+                    label: 'Menu',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.shopping_cart),
+                    label: 'Cart',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.person),
+                    label: 'Profile',
+                  ),
+                ],
+              ),
+            ),
     );
   }
-}
-
-extension on ThemeData {
-  get bottomAppBarColor => null;
 }

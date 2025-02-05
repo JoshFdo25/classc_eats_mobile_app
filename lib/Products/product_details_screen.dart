@@ -1,9 +1,31 @@
+import 'dart:convert';
+import 'package:classc_eats/Cart/cart_screen.dart';
+import 'package:classc_eats/services/api_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   final Map product;
 
   const ProductDetailScreen({super.key, required this.product});
+
+  void _handleAddToCart(BuildContext context) async {
+    final productId = product['id'];
+    if (kDebugMode) {
+      print("Adding product with id: $productId");
+    }
+    final response = await ApiService().addToCart(productId.toString());
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Product added to cart.')),
+      );
+    } else {
+      final data = jsonDecode(response.body);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(data['error'] ?? 'Error adding to cart.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,18 +35,27 @@ class ProductDetailScreen extends StatelessWidget {
           product['name'],
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CartScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: OrientationBuilder(
         builder: (context, orientation) {
-          // Check if the orientation is landscape
           bool isLandscape = orientation == Orientation.landscape;
-
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: isLandscape
-                  ? _buildLandscapeLayout(context) // Landscape layout
-                  : _buildPortraitLayout(context), // Portrait layout
+                  ? _buildLandscapeLayout(context)
+                  : _buildPortraitLayout(context),
             ),
           );
         },
@@ -32,7 +63,6 @@ class ProductDetailScreen extends StatelessWidget {
     );
   }
 
-  // Portrait layout
   Widget _buildPortraitLayout(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,7 +84,7 @@ class ProductDetailScreen extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           "Rs. ${product['price']}",
-          style: const TextStyle(fontSize: 20, color: Colors.black),
+          style: const TextStyle(fontSize: 20),
         ),
         const SizedBox(height: 8),
         Row(
@@ -94,19 +124,23 @@ class ProductDetailScreen extends StatelessWidget {
           child: ElevatedButton(
             onPressed: product['status']
                 ? () {
-              // Implement cart functionality
-            }
+                    _handleAddToCart(context);
+                  }
                 : null,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
+                borderRadius: BorderRadius.circular(40.0),
               ),
-              backgroundColor: product['status'] ? Colors.blue : Colors.grey,
+              backgroundColor:
+                  product['status'] ? Colors.indigo[900] : Colors.grey,
             ),
             child: const Text(
               "Add to Cart",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
             ),
           ),
         ),
@@ -138,7 +172,8 @@ class ProductDetailScreen extends StatelessWidget {
             children: [
               Text(
                 product['name'],
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -188,15 +223,17 @@ class ProductDetailScreen extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: product['status']
                       ? () {
-                    // Implement cart functionality
-                  }
+                          _handleAddToCart(context);
+                        }
                       : null,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 40, vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10.0),
                     ),
-                    backgroundColor: product['status'] ? Colors.blue : Colors.grey,
+                    backgroundColor:
+                        product['status'] ? Colors.blue : Colors.grey,
                   ),
                   child: const Text(
                     "Add to Cart",

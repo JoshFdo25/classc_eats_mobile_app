@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:classc_eats/Services/api_service.dart';
 
@@ -8,13 +10,15 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+  TextEditingController();
   final TextEditingController _nameController = TextEditingController();
 
   bool _isSigningUp = false;
@@ -32,10 +36,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       vsync: this,
     );
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(1, 0), // Starts off-screen to the right
+      begin: const Offset(1, 0),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
-
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
     _animationController.forward(from: 0.0);
   }
 
@@ -82,13 +87,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         if (response.statusCode == 201) {
           _showSnackbar('Registration successful!');
           if (mounted) {
-            Navigator.pushReplacementNamed(context, '/home');
+            Navigator.pushReplacementNamed(context, '/main');
           }
-        } else if (response.statusCode == 400 && response.body.contains('email')) {
-          // ✅ Email already registered - show validation error instead of snackbar
-          setState(() {
-            _emailError = 'Email is already registered. Please use a different email.';
-          });
+        } else if (response.statusCode == 422) {
+          // Handle the 422 error for duplicate email
+          final responseData = jsonDecode(response.body);
+          if (responseData['errors'] != null && responseData['errors']['email'] != null) {
+            setState(() {
+              _emailError = 'Email is already registered. Please use a different email.';
+            });
+          } else {
+            // Handle other errors
+            _showSnackbar('Registration failed: ${response.body}');
+          }
         } else {
           _showSnackbar('Registration failed: ${response.body}');
         }
@@ -101,8 +112,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         if (response.statusCode == 200) {
           _showSnackbar('Login successful!');
           if (mounted) {
-            Navigator.pushReplacementNamed(context, '/home');
+            Navigator.pushReplacementNamed(context, '/main');
           }
+        } else if (response.statusCode == 401 && response.body.contains('email')) {
+          // Check if the email is already registered for login failure
+          _showSnackbar('Email is already registered. Please use a different email.');
         } else {
           _showSnackbar('Login failed: ${response.body}');
         }
@@ -113,6 +127,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     setState(() => _isLoading = false);
   }
+
+
 
   void _showSnackbar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -193,26 +209,30 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     return Form(
       key: _formKey,
       child: Column(
-        key: ValueKey<bool>(_isSigningUp), // Ensures re-rendering
+        key: ValueKey<bool>(_isSigningUp),
         children: [
-          if (_isSigningUp) _buildInputField(_nameController, "Name", false),
+          if (_isSigningUp)
+            _buildInputField(_nameController, "Name", false),
           const SizedBox(height: 10),
           _buildInputField(_emailController, "Email", false),
           const SizedBox(height: 10),
           _buildInputField(_passwordController, "Password", true),
           if (_isSigningUp) const SizedBox(height: 10),
-          if (_isSigningUp) _buildInputField(_confirmPasswordController, "Confirm Password", true),
+          if (_isSigningUp)
+            _buildInputField(
+                _confirmPasswordController, "Confirm Password", true),
         ],
       ),
     );
   }
 
-  Widget _buildInputField(TextEditingController controller, String label, bool obscureText) {
+  Widget _buildInputField(
+      TextEditingController controller, String label, bool obscureText) {
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
-        errorText: label == "Email" ? _emailError : null, // ✅ Show error if it's an email
+        errorText: label == "Email" ? _emailError : null,
       ),
       obscureText: obscureText,
       validator: (value) {
@@ -230,11 +250,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 
-
   Widget _buildActionButton() {
     return ElevatedButton(
       style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.all<Color>(Colors.indigo[900]!),
+        backgroundColor:
+        WidgetStateProperty.all<Color>(Colors.indigo.shade900),
       ),
       onPressed: _authenticateUser,
       child: _isLoading

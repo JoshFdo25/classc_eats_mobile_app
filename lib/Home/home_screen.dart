@@ -2,15 +2,14 @@ import 'dart:convert';
 import 'package:classc_eats/Services/api_service.dart';
 import 'package:flutter/material.dart';
 
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  HomeScreenState createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   List<dynamic> _categories = [];
   bool _isLoading = true;
 
@@ -41,18 +40,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: OrientationBuilder(
         builder: (context, orientation) {
+          // Use the isLandscape flag to adjust dimensions where necessary.
           bool isLandscape = orientation == Orientation.landscape;
           return SingleChildScrollView(
             child: Column(
               children: [
-                _buildBanner(context),
-                _buildIntroText(context),
+                _buildBanner(context, isLandscape),
+                _buildIntroText(context, isLandscape),
                 _buildCategoriesTitle(context),
                 _isLoading
-                    ? const CircularProgressIndicator()
+                    ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                )
                     : _buildCategoriesList(context, isLandscape),
-                _buildNewProductsCard(context),
-                _buildExclusiveOffers(context),
+                _buildNewProductsCard(context, isLandscape),
+                _buildExclusiveOffers(context, isLandscape),
               ],
             ),
           );
@@ -61,8 +64,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Builds the banner widget used in both layouts.
-  Widget _buildBanner(BuildContext context) {
+  Widget _buildBanner(BuildContext context, bool isLandscape) {
+    // Adjust the banner height based on orientation.
+    final bannerHeight = isLandscape ? 200.0 : 250.0;
     return ClipRRect(
       borderRadius: const BorderRadius.only(
         bottomLeft: Radius.circular(30.0),
@@ -73,23 +77,23 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           SizedBox(
             width: double.infinity,
+            height: bannerHeight,
             child: Image.asset(
               'lib/images/Banner.jpg',
               fit: BoxFit.cover,
-              height: 250,
             ),
           ),
           Container(
             width: double.infinity,
-            height: 250,
+            height: bannerHeight,
             color: Colors.black38,
           ),
-          const Padding(
-            padding: EdgeInsets.all(16.0),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Text(
               'Welcome to Classic Eats',
               style: TextStyle(
-                fontSize: 24,
+                fontSize: isLandscape ? 22 : 24,
                 fontFamily: 'PlaywriteCU',
                 color: Colors.white,
               ),
@@ -101,7 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildIntroText(BuildContext context) {
+  Widget _buildIntroText(BuildContext context, bool isLandscape) {
+    // You can adjust padding or font size based on orientation if needed.
     return Padding(
       padding: const EdgeInsets.all(23.0),
       child: Container(
@@ -122,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
               'we blend innovation and tradition to bring you a diverse '
               'menu that delights the senses.',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: isLandscape ? 15 : 16,
             color: Theme.of(context).colorScheme.inverseSurface,
           ),
           textAlign: TextAlign.center,
@@ -145,21 +150,53 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// In portrait mode we use a horizontal ListView. In landscape mode,
+  /// if there are only a few category cards, they are centered.
   Widget _buildCategoriesList(BuildContext context, bool isLandscape) {
-    return SizedBox(
-      height: isLandscape ? 150 : 180,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _categories.length,
-        itemBuilder: (context, index) {
-          final category = _categories[index];
-          return _buildCategoryCard(context, category['image'], category['name']);
-        },
-      ),
-    );
+    final listHeight = isLandscape ? 150.0 : 180.0;
+    if (isLandscape) {
+      // Build a centered row of category cards
+      return SizedBox(
+        height: listHeight,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: _categories.map<Widget>((category) {
+              return _buildCategoryCard(
+                context,
+                category['image'],
+                category['name'],
+                isLandscape,
+              );
+            }).toList(),
+          ),
+        ),
+      );
+    } else {
+      // Portrait: use a scrollable horizontal list.
+      return SizedBox(
+        height: listHeight,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: _categories.length,
+          itemBuilder: (context, index) {
+            final category = _categories[index];
+            return _buildCategoryCard(
+              context,
+              category['image'],
+              category['name'],
+              isLandscape,
+            );
+          },
+        ),
+      );
+    }
   }
 
-  Widget _buildCategoryCard(BuildContext context, String imageUrl, String title) {
+  Widget _buildCategoryCard(
+      BuildContext context, String imageUrl, String title, bool isLandscape) {
+    // Adjust the image dimensions for landscape if desired.
+    final imageSize = isLandscape ? 100.0 : 110.0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(
@@ -168,22 +205,24 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(12.0),
             child: Image.network(
               imageUrl,
-              width: 100,
-              height: 100,
+              width: imageSize,
+              height: imageSize,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.image_not_supported, size: 100);
-              },
             ),
           ),
           const SizedBox(height: 5),
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildNewProductsCard(BuildContext context) {
+  Widget _buildNewProductsCard(BuildContext context, bool isLandscape) {
+    // Adjust card height based on orientation.
+    final cardHeight = isLandscape ? 130.0 : 150.0;
     return Card(
       margin: const EdgeInsets.all(16.0),
       shape: RoundedRectangleBorder(
@@ -194,14 +233,16 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Image.asset(
           'lib/images/New-products.webp',
           width: double.infinity,
-          height: 150,
+          height: cardHeight,
           fit: BoxFit.cover,
         ),
       ),
     );
   }
 
-  Widget _buildExclusiveOffers(BuildContext context) {
+  Widget _buildExclusiveOffers(BuildContext context, bool isLandscape) {
+    // Adjust image height based on orientation.
+    final offerHeight = isLandscape ? 130.0 : 150.0;
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -225,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Image.asset(
                 'lib/images/food-coupons.jpg',
                 width: double.infinity,
-                height: 150,
+                height: offerHeight,
                 fit: BoxFit.cover,
               ),
             ),
